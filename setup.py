@@ -7,6 +7,8 @@ setup(
     entry_points={
         'console_scripts': [
             'external_hd_index = gcnr.sandbox.external_hd_index:main',
+            'external_hd_query = gcnr.sandbox.external_hd_index:query',
+            # TODO: ideally we want something like "external_hd query" (subcommands)
         ]
     },
 )
