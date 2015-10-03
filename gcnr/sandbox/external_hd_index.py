@@ -27,9 +27,10 @@ class FileSystemEntry(Base):
     modified = Column(DateTime)
     created = Column(DateTime)
     comment = Column(String)
+    insert_datetime = Column(DateTime)
 
 
-engine = create_engine('sqlite://')
+engine = create_engine('sqlite:////Users/gabriel/database.db')
 
 Base.metadata.create_all(engine)
 
@@ -38,6 +39,7 @@ Session = sessionmaker(bind=engine)
 
 def main():
     session = Session()
+    insert_datetime = datetime.datetime.now()
     volume_name = 'foo'
     for dirpath, dirnames, filenames in os.walk('.'):
         normdir = os.path.normpath(dirpath)
@@ -55,10 +57,12 @@ def main():
             created=datetime.datetime.utcfromtimestamp(
                 os.path.getctime(normdir)),
             comment=None,
+            insert_datetime=insert_datetime,
         )
         session.add(entry)
 
         for filename in filenames:
+            filename = filename.decode('utf-8')
             normfile = os.path.normpath(os.path.join(dirpath, filename))
             basename = os.path.basename(normfile)
             basename_noext, extension = os.path.splitext(basename)
@@ -76,6 +80,7 @@ def main():
                 created=datetime.datetime.utcfromtimestamp(
                     os.path.getctime(normfile)),
                 comment=None,
+                insert_datetime=insert_datetime,
             )
             session.add(entry)
 
