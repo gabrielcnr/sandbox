@@ -1,5 +1,7 @@
 import os
 import datetime
+
+import shutil
 from sqlalchemy import Column, Integer, String, DateTime, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -43,11 +45,21 @@ Session = sessionmaker(bind=engine)
 
 session = Session()
 
+def backup_existing_db():
+    shutil.copy(path_to_db, path_to_db+'.bak')
+
+
 def main():
+    """
+    This method creates a full catalogue/index of a directory.
+    It stores the data in the Database file: $HOME/external_hd.db
+    """
     t0 = time.clock()
     parser = argparse.ArgumentParser()
     parser.add_argument('volume_name')
     args = parser.parse_args()
+
+    backup_existing_db()
 
     insert_datetime = datetime.datetime.now()
     volume_name = args.volume_name
@@ -100,12 +112,35 @@ def main():
     print 'Indexing took %.2f s' % (t1-t0)
 
 
-def query():
+def get_df():
+    """
+    Queries the SQL database and returns a full pandas DataFrame
+    with the entire index of the files to be manipulated.
+
+    Great for using in IPython Notebook.
+    """
     query = session.query(FileSystemEntry)
     df = pd.read_sql(query.statement.compile(engine), engine)
+    return df
 
+
+def get_short_df():
+    """ Fewer columns of the DataFrame returned by get_df().
+    """
     pd.set_option('display.width', 5000)
     pd.set_option('display.max_columns', 500)
 
-    df2 = df[['full_path', 'extension', 'size']]
-    import pdb; pdb.set_trace()
+    df = get_df()
+    df2 = df[['volume_name', 'basename_noext', 'extension', 'full_path', 'size']]
+    return df2
+
+
+def find(df, filename='', extension=''):
+    if filename:
+        mask = df.full_path.str.lower().str.contains(filename.lower())
+        df = df[mask]
+    if extension:
+        mask = df.extension.str.lower().str.contains(extension.lower())
+        df = df[mask]
+    return df
+
