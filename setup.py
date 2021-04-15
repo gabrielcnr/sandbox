@@ -6,10 +6,10 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'external_hd_index = gcnr.sandbox.external_hd_index:main',
-            'external_hd_query = gcnr.sandbox.external_hd_index:query',
+            'external_hd_index = sandbox.gcnr.sandbox.external_hd_index:main',
+            'external_hd_query = sandbox.gcnr.sandbox.external_hd_index:query',
             # TODO: ideally we want something like "external_hd query" (subcommands)
-            'planetpython = gcnr.planetpython.planetpython_index:main',
+            'planetpython = sandbox.gcnr.planetpython.planetpython_index:main',
         ]
     },
 )

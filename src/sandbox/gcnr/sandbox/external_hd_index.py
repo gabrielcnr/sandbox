@@ -63,7 +63,7 @@ def main():
 
     insert_datetime = datetime.datetime.now()
     volume_name = args.volume_name
-    for dirpath, dirnames, filenames in os.walk('.'):
+    for dirpath, dirnames, filenames in os.walk(''):
         normdir = os.path.normpath(dirpath).decode('utf-8')
         entry = FileSystemEntry(
             volume_name=volume_name,
