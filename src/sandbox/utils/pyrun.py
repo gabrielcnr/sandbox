@@ -32,7 +32,6 @@ import subprocess
 import sys
 from email.message import EmailMessage
 from enum import Enum
-from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 
 
@@ -41,7 +40,7 @@ def main():
     config["start"] = datetime.datetime.now()
 
     # run the script
-    returncode, output = call()
+    returncode, output = call(config["executable_call"])
 
     config["end"] = datetime.datetime.now()
 
@@ -59,7 +58,7 @@ def get_config(argv: List[str] = None):
     name = args.name or env_var("NAME")
     send_email_on_failure = args.failure or env_var("FAILURE", "false").lower() in ["1", "true"]
     send_email_on_success = args.success or env_var("SUCCESS", "false").lower() in ["1", "true"]
-    script = args.script
+    executable_call = args.executable_call
 
     recipients = [r.strip() for r in recipients.strip().split(",")]
 
@@ -67,7 +66,7 @@ def get_config(argv: List[str] = None):
         "sender": sender,
         "recipients": recipients,
         "name": name,
-        "script": script,
+        "executable_call": executable_call,
         "send_email_on_failure": send_email_on_failure,
         "send_email_on_success": send_email_on_success,
     }
@@ -80,7 +79,8 @@ def parse_args(argv: List[str] = None):
     parser.add_argument("--name", help="the name/id for the task/script")
     parser.add_argument("-f", "--failure", action="store_true", help="send email on failures")
     parser.add_argument("-s", "--success", action="store_true", help="send email on successes")
-    parser.add_argument("script", help="the path to the entry point function for task (e.g.: foo.bar.app:main)")
+    parser.add_argument("executable_call", nargs=argparse.REMAINDER,
+                        help="the path to the entry point function for task (e.g.: foo.bar.app:main)")
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     return args
 
@@ -116,8 +116,7 @@ def send_email(config: Dict, output: str, returncode: int) -> None:
     dt_fmt = "%d-%b-%Y %H:%M:%S"
     fields = {
         "Name": config["name"],
-        "Entry point": config["script"],
-        "Command args": ...,
+        "Executable call": " ".join(config["executable_call"]),
         "Return code": returncode,
         "Status": status,
         "Started at": config["start"].strftime(dt_fmt),
@@ -127,7 +126,7 @@ def send_email(config: Dict, output: str, returncode: int) -> None:
         "Hostname": socket.gethostname(),
     }
     formatted_fields = format_dict(fields)
-    body = f"<h1>{config['name']} - {status}</h1><br><pre>{formatted_fields}</pre>"
+    body = f"<h1>{config['name']} - {status}</h1><br><pre>{formatted_fields}</pre><h2>Please check output attached.</h2>"
     _send_email(
         sender=config["sender"],
         recipients=config["recipients"],
@@ -135,6 +134,7 @@ def send_email(config: Dict, output: str, returncode: int) -> None:
         body=body,
         html=True,
         priority=EmailPriority.HIGH if returncode else EmailPriority.NORMAL,
+        attachments={"output.txt": output},
     )
 
 
@@ -150,7 +150,7 @@ def _send_email(sender: str,
                 subject: str,
                 body: str,
                 smtp_hostname: str = "localhost",
-                attachments: Optional[List[os.PathLike]] = None,
+                attachments: Optional[Dict] = None,
                 html: Optional[bool] = True,
                 priority: Optional[EmailPriority] = EmailPriority.NORMAL,
                 ):
@@ -166,11 +166,9 @@ def _send_email(sender: str,
 
     message.set_content(body, **kwargs)
 
-    # TODO: support attachments as dict of {filename: filepath}
-    attachments = attachments or []
-    for path in attachments:
-        with Path(path).open() as fp:
-            message.add_attachment(fp.read(), filename=path.name)
+    attachments = attachments or {}
+    for filename, contents in attachments.items():
+        message.add_attachment(contents, filename=filename)
 
     with smtplib.SMTP(smtp_hostname) as smtp:
         smtp.send_message(message)
