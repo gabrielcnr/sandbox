@@ -112,12 +112,31 @@ def format_dict(d: Dict, sep: str = ":") -> str:
 
 
 def send_email(config: Dict, output: str, returncode: int) -> None:
+    status = "FAILED" if returncode else "SUCCEEDED"
+    dt_fmt = "%d-%b-%Y %H:%M:%S"
     fields = {
-        ""
-        "Returncode": returncode,
+        "Name": config["name"],
+        "Entry point": config["script"],
+        "Command args": ...,
+        "Return code": returncode,
+        "Status": status,
+        "Started at": config["start"].strftime(dt_fmt),
+        "Finished at": config["end"].strftime(dt_fmt),
+        "Total Runtime": "{:,.2f}".format(config["elapsed"]),
         "Username": getpass.getuser(),
         "Hostname": socket.gethostname(),
     }
+    formatted_fields = format_dict(fields)
+    body = f"<h1>{config['name']} - {status}</h1><br><pre>{formatted_fields}</pre>"
+    _send_email(
+        sender=config["sender"],
+        recipients=config["recipients"],
+        subject=f"Task: {config['name']} - {status}",
+        body=body,
+        html=True,
+        priority=EmailPriority.HIGH if returncode else EmailPriority.NORMAL,
+    )
+
 
 
 class EmailPriority(str, Enum):
