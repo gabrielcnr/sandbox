@@ -1,0 +1,13 @@
+package:
+  name: envfromrecipe
+  version: 0.1.0
+
+requirements:
+  run:
+    - python =3.8
+    - pandas >1.3,<1.4
+
+test:
+  requires:
+    - pytest
+    - pytest-datadir
