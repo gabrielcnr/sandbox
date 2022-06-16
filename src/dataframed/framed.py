@@ -1,11 +1,14 @@
 from __future__ import annotations
+import json
 import pandas as pd
 
 # TODO: how about the order of the columns? What if one wants/needs to enforce order?
 import typing
 
 import pytest
+
 from pandas._typing import Axes, Dtype
+from pandas.testing import assert_frame_equal
 
 
 class DataFramed(pd.DataFrame):
@@ -31,13 +34,23 @@ class DataFramed(pd.DataFrame):
         dtype: Dtype | None = None,
         copy: bool | None = None,
     ):
-        if columns is None:
-            columns = list(self._type_hints)
-            # if dtype is None:
-            #     dtype = list(self._type_hints.values())  # TODO; wrong
-        elif missing := set(self._type_hints) - set(columns):
-                raise ValueError(f'{type(self).__name__} is missing required columns: {missing}')
+        if not (df_given := isinstance(data, pd.DataFrame) and type(data) is not type(self)):
+            if columns is None:
+                columns = list(self._type_hints)
+                # if dtype is None:
+                #     dtype = list(self._type_hints.values())  # TODO; wrong
+            elif missing := set(self._type_hints) - set(columns):
+                    raise ValueError(f'{type(self).__name__} is missing required columns: {missing}')
+
         super().__init__(data=data, index=index, columns=columns, dtype=dtype, copy=copy)
+
+        if df_given:
+            # Post-validation needed
+            # When we're given another DataFrame in the constructor we just re-assign all the columns
+            # to make it go through __setitem__ and trigger the type validation
+            # This is extremely inefficient and almost madness... but it does the job for this PoC
+            for c in self.columns:
+                self[c] = self[c]
 
     def __setitem__(self, key, value):
         if isinstance(key, str): # only strings
@@ -64,7 +77,7 @@ class DataFramed(pd.DataFrame):
                                                 f' to be {type_} - got: {type(v).__name__}')
 
 
-        print('calling super', repr(key), repr(value))
+        # print('calling super', repr(key), repr(value))
         # If it didn't raise, then it's good to proceed ...
         super().__setitem__(key, value)
 
@@ -75,9 +88,13 @@ class DataFramed(pd.DataFrame):
         else:
             return super().__delitem__(key)
 
-    def copy(self):
+    def copy(self) -> "Self":
         return type(self)(self)
 
+    @classmethod
+    def from_json(cls, json_str: str) -> "Self":
+        df = pd.read_json(json_str)
+        return cls(df)
 
     # TODO: the DataFrame API is quite long, so this Proxy object will need to implement a lot more 
     #       to be really comprehensive
@@ -163,3 +180,48 @@ def test_copy_returns_same_type():
     df_copy = df.copy()
 
     assert type(df_copy) is MyDataFrame
+
+
+def test_from_json():
+    class MyDataFrame(DataFramed):
+        class Schema:
+            name: str
+            age: int
+
+    json_str = json.dumps({'name': ['Alice', 'Bob'], 'age': [55, 58]})
+
+    df = MyDataFrame.from_json(json_str)
+    assert list(df['name']) == ['Alice', 'Bob']
+    assert type(df) is MyDataFrame
+
+
+def test_from_json_invalid():
+    class MyDataFrame(DataFramed):
+        class Schema:
+            name: str
+            age: int
+
+    json_str = json.dumps({'name': [1010101, 10101001], 'age': [55, 58]})
+
+    with pytest.raises(TypeError):
+        MyDataFrame.from_json(json_str)
+
+
+def test_from_json_valid_but_with_extra_cols():
+    class MyDataFrame(DataFramed):
+        class Schema:
+            name: str
+
+    # age is an extra column that is not part of the schema.. but it's ok..
+    json_str = json.dumps({'name': ['Donald', 'Mickey'], 'age': [33, 32]})
+
+    df = MyDataFrame.from_json(json_str)
+
+    expected = pd.DataFrame()
+    expected['name'] = ['Donald', 'Mickey']
+    expected['age'] = [33, 32]
+
+    # assert df.equals(expected)
+    # assert expected.equals(df)
+
+    assert_frame_equal(expected, df, check_frame_type=False)
