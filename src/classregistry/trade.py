@@ -1,9 +1,20 @@
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, ABCMeta
 
 _trade_registry = {}
 
+class TradeMeta(ABCMeta):
+    def __iter__(cls):
+        if cls is not Trade:
+            raise TypeError(f'{cls.__name__!r} object is not iterable')
+        yield from _trade_registry.values()
 
-class Trade(ABC):
+    def __getitem__(cls, item):
+        if cls is not Trade:
+            raise TypeError(f'{cls.__name__!r} object is not subscriptable')
+        return _trade_registry[item]
+
+
+class Trade(metaclass=TradeMeta):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -18,11 +29,3 @@ class Trade(ABC):
     @abstractmethod
     def func(self) -> str:
         ...
-
-
-def iter_trade_types() -> Trade:  # TODO: typevar covariant
-    yield from _trade_registry.values()
-
-
-def get_trade_type_by_name(name: str) -> Trade:
-    return _trade_registry[name]
