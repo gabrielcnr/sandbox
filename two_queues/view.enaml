@@ -1,0 +1,39 @@
+from enaml.widgets.api import *
+from enaml.layout.api import *
+from model import Model
+
+enamldef Main(MainWindow):
+    title = 'Two Queues'
+    attr model = Model()
+
+
+    attr n = 0
+
+    Timer: timer:
+        interval = 100
+        timeout ::
+            nonlocals.n += 1
+
+    activated ::
+        timer.start()
+
+
+    Container:
+        PushButton:
+            text = 'Click'
+            clicked ::
+                model.do_it()
+
+        PushButton:
+            text = 'Click 2'
+            clicked ::
+                model.do_it_2()
+
+        Label:
+            text << model.result
+
+        Label:
+            text << model.result_2
+
+        Label:
+            text << f'{n = }'
