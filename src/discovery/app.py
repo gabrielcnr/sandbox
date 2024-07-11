@@ -1,24 +1,14 @@
 import datetime
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Self, TypedDict
+from typing import Self
 
-type ServiceId = str
-
-type ServiceParams = dict[str, Any]
+from .core import ServiceId, ServiceParams, ServiceInfoDict
 
 
 def seconds_since(dt: datetime.datetime) -> int:
     delta = datetime.datetime.now(tz=datetime.UTC) - dt
     return int(delta.total_seconds())
-
-
-class ServiceInfoDict(TypedDict):
-    params: ServiceParams
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
-    age: int
-    elapsed: int
 
 
 @dataclass
@@ -67,3 +57,20 @@ class ServiceDiscovery:
     def get(self, service_id: ServiceId) -> ServiceInfoDict:
         service_info = self.services[service_id]
         return service_info.to_dict()
+
+
+service_discovery = ServiceDiscovery()
+
+import fastapi
+
+app = fastapi.FastAPI()
+
+@app.post('/set/{service_id}')
+def update_service(service_id: ServiceId, service_params: ServiceParams):
+    service_discovery.set(service_id, service_params)
+
+
+@app.get('/get/{service_id}')
+def get_service(service_id: ServiceId) -> ServiceInfoDict:
+    return service_discovery.get(service_id)
+
